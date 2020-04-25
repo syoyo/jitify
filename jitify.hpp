@@ -1309,6 +1309,7 @@ class CUDAKernel {
 
   inline CUresult launch(dim3 grid, dim3 block, unsigned int smem,
                          CUstream stream, std::vector<void*> arg_ptrs) const {
+    std::cout << "launch: stream = " << stream << "\n";
     return cuLaunchKernel(_kernel, grid.x, grid.y, grid.z, block.x, block.y,
                           block.z, smem, stream, arg_ptrs.data(), NULL);
   }
@@ -2327,6 +2328,10 @@ inline void detect_and_add_cuda_arch(std::vector<std::string>& options) {
   // Use the compute capability of the current device
   // TODO: Check these API calls for errors
 #if JITIFY_USE_CUEW
+  int count{0};
+  cuDeviceGetCount(&count);
+  std::cout << "count " << count << "\n";
+
   CUdevice device;
   CUresult status = cuDeviceGet(&device, /* ordinal */0);
   if (status != CUDA_SUCCESS) {
@@ -2334,13 +2339,34 @@ inline void detect_and_add_cuda_arch(std::vector<std::string>& options) {
     cuGetErrorString(status, &err);
     throw std::runtime_error(
         std::string(
-            "Failed to detect GPU architecture: cudaGetDevice failed: ") + std::string(err));
+            "Failed to detect GPU architecture: cuDeviceGet failed: ") + std::string(err));
   }
   int cc_major;
   cuDeviceGetAttribute(&cc_major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, device);
   int cc_minor;
   cuDeviceGetAttribute(&cc_minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, device);
   int cc = cc_major * 10 + cc_minor;
+
+  // TODO(syoyo): Release context
+  CUcontext ctx;
+  status = cuCtxCreate(&ctx, 0, device);
+  if (status != CUDA_SUCCESS) {
+    const char *err;
+    cuGetErrorString(status, &err);
+    throw std::runtime_error(
+        std::string(
+            "Failed to create context: cuCtxCreate failed: ") + std::string(err));
+  }
+
+  status = cuCtxSetCurrent(ctx);
+  if (status != CUDA_SUCCESS) {
+    const char *err;
+    cuGetErrorString(status, &err);
+    throw std::runtime_error(
+        std::string(
+            "Failed to set current: cuCtxSetCurrent failed: ") + std::string(err));
+  }
+
 #else
   cudaError_t status;
   int device;
