@@ -109,12 +109,28 @@
 #include <mutex>
 #endif
 
+#if JITIFY_USE_CUEW
+#include "cuew.h"
+
+struct __device_builtin__ dim3
+{
+    unsigned int x, y, z;
+#if defined(__cplusplus)
+    dim3(unsigned int vx = 1, unsigned int vy = 1, unsigned int vz = 1) : x(vx), y(vy), z(vz) {}
+    //dim3(uint3 v) : x(v.x), y(v.y), z(v.z) {}
+    //operator uint3(void) { uint3 t; t.x = x; t.y = y; t.z = z; return t; }
+#endif /* __cplusplus */
+};
+
+typedef __device_builtin__ struct dim3 dim3;
+#else
 #include <cuda.h>
 #include <cuda_runtime_api.h>  // For dim3, cudaStream_t
 #if CUDA_VERSION >= 8000
 #define NVRTC_GET_TYPE_NAME 1
 #endif
 #include <nvrtc.h>
+#endif
 
 // For use by get_current_executable_path().
 #ifdef __linux__
@@ -1387,12 +1403,12 @@ static const char* jitsafe_header_float_h = R"(
 #define DBL_MAX_EXP     1024
 #define FLT_MAX_10_EXP  38
 #define DBL_MAX_10_EXP  308
-#define FLT_MAX         3.4028234e38f 
-#define DBL_MAX         1.7976931348623157e308 
-#define FLT_EPSILON     1.19209289e-7f 
-#define DBL_EPSILON     2.220440492503130e-16 
-#define FLT_MIN         1.1754943e-38f; 
-#define DBL_MIN         2.2250738585072013e-308 
+#define FLT_MAX         3.4028234e38f
+#define DBL_MAX         1.7976931348623157e308
+#define FLT_EPSILON     1.19209289e-7f
+#define DBL_EPSILON     2.220440492503130e-16
+#define FLT_MIN         1.1754943e-38f;
+#define DBL_MIN         2.2250738585072013e-308
 #define FLT_ROUNDS      1
 #if defined __cplusplus && __cplusplus >= 201103L
 #define FLT_EVAL_METHOD 0
@@ -1501,11 +1517,11 @@ namespace __jitify_detail {
 
 struct FloatLimits {
 #if __cplusplus >= 201103L
-   static JITIFY_CXX11_CONSTEXPR inline __host__ __device__ 
+   static JITIFY_CXX11_CONSTEXPR inline __host__ __device__
           float lowest() JITIFY_CXX11_NOEXCEPT {   return -FLT_MAX;}
-   static JITIFY_CXX11_CONSTEXPR inline __host__ __device__ 
+   static JITIFY_CXX11_CONSTEXPR inline __host__ __device__
           float min() JITIFY_CXX11_NOEXCEPT {      return FLT_MIN; }
-   static JITIFY_CXX11_CONSTEXPR inline __host__ __device__ 
+   static JITIFY_CXX11_CONSTEXPR inline __host__ __device__
           float max() JITIFY_CXX11_NOEXCEPT {      return FLT_MAX; }
 #endif  // __cplusplus >= 201103L
    enum {
@@ -1536,11 +1552,11 @@ struct FloatLimits {
 };
 struct DoubleLimits {
 #if __cplusplus >= 201103L
-   static JITIFY_CXX11_CONSTEXPR inline __host__ __device__ 
+   static JITIFY_CXX11_CONSTEXPR inline __host__ __device__
           double lowest() noexcept { return -DBL_MAX; }
-   static JITIFY_CXX11_CONSTEXPR inline __host__ __device__ 
+   static JITIFY_CXX11_CONSTEXPR inline __host__ __device__
           double min() noexcept { return DBL_MIN; }
-   static JITIFY_CXX11_CONSTEXPR inline __host__ __device__ 
+   static JITIFY_CXX11_CONSTEXPR inline __host__ __device__
           double max() noexcept { return DBL_MAX; }
 #endif  // __cplusplus >= 201103L
    enum {
@@ -1596,49 +1612,49 @@ namespace __jitify_limits_ns {
 template<typename T> struct numeric_limits {
     enum { is_specialized = false };
 };
-template<> struct numeric_limits<bool>               : public 
+template<> struct numeric_limits<bool>               : public
 __jitify_detail::IntegerLimits<bool,              false,    true,1> {};
-template<> struct numeric_limits<char>               : public 
-__jitify_detail::IntegerLimits<char,              CHAR_MIN, CHAR_MAX> 
+template<> struct numeric_limits<char>               : public
+__jitify_detail::IntegerLimits<char,              CHAR_MIN, CHAR_MAX>
 {};
-template<> struct numeric_limits<signed char>        : public 
-__jitify_detail::IntegerLimits<signed char,       SCHAR_MIN,SCHAR_MAX> 
+template<> struct numeric_limits<signed char>        : public
+__jitify_detail::IntegerLimits<signed char,       SCHAR_MIN,SCHAR_MAX>
 {};
-template<> struct numeric_limits<unsigned char>      : public 
-__jitify_detail::IntegerLimits<unsigned char,     0,        UCHAR_MAX> 
+template<> struct numeric_limits<unsigned char>      : public
+__jitify_detail::IntegerLimits<unsigned char,     0,        UCHAR_MAX>
 {};
-template<> struct numeric_limits<wchar_t>            : public 
+template<> struct numeric_limits<wchar_t>            : public
 __jitify_detail::IntegerLimits<wchar_t,           INT_MIN,  INT_MAX> {};
-template<> struct numeric_limits<short>              : public 
-__jitify_detail::IntegerLimits<short,             SHRT_MIN, SHRT_MAX> 
+template<> struct numeric_limits<short>              : public
+__jitify_detail::IntegerLimits<short,             SHRT_MIN, SHRT_MAX>
 {};
-template<> struct numeric_limits<unsigned short>     : public 
-__jitify_detail::IntegerLimits<unsigned short,    0,        USHRT_MAX> 
+template<> struct numeric_limits<unsigned short>     : public
+__jitify_detail::IntegerLimits<unsigned short,    0,        USHRT_MAX>
 {};
-template<> struct numeric_limits<int>                : public 
+template<> struct numeric_limits<int>                : public
 __jitify_detail::IntegerLimits<int,               INT_MIN,  INT_MAX> {};
-template<> struct numeric_limits<unsigned int>       : public 
-__jitify_detail::IntegerLimits<unsigned int,      0,        UINT_MAX> 
+template<> struct numeric_limits<unsigned int>       : public
+__jitify_detail::IntegerLimits<unsigned int,      0,        UINT_MAX>
 {};
-template<> struct numeric_limits<long>               : public 
-__jitify_detail::IntegerLimits<long,              LONG_MIN, LONG_MAX> 
+template<> struct numeric_limits<long>               : public
+__jitify_detail::IntegerLimits<long,              LONG_MIN, LONG_MAX>
 {};
-template<> struct numeric_limits<unsigned long>      : public 
-__jitify_detail::IntegerLimits<unsigned long,     0,        ULONG_MAX> 
+template<> struct numeric_limits<unsigned long>      : public
+__jitify_detail::IntegerLimits<unsigned long,     0,        ULONG_MAX>
 {};
-template<> struct numeric_limits<long long>          : public 
-__jitify_detail::IntegerLimits<long long,         LLONG_MIN,LLONG_MAX> 
+template<> struct numeric_limits<long long>          : public
+__jitify_detail::IntegerLimits<long long,         LLONG_MIN,LLONG_MAX>
 {};
-template<> struct numeric_limits<unsigned long long> : public 
-__jitify_detail::IntegerLimits<unsigned long long,0,        ULLONG_MAX> 
+template<> struct numeric_limits<unsigned long long> : public
+__jitify_detail::IntegerLimits<unsigned long long,0,        ULLONG_MAX>
 {};
-//template<typename T> struct numeric_limits { static const bool 
+//template<typename T> struct numeric_limits { static const bool
 //is_signed = ((T)(-1)<0); };
-template<> struct numeric_limits<float>              : public 
-__jitify_detail::FloatLimits 
+template<> struct numeric_limits<float>              : public
+__jitify_detail::FloatLimits
 {};
-template<> struct numeric_limits<double>             : public 
-__jitify_detail::DoubleLimits 
+template<> struct numeric_limits<double>             : public
+__jitify_detail::DoubleLimits
 {};
 } // namespace __jitify_limits_ns
 namespace std { using namespace __jitify_limits_ns; }
@@ -2310,6 +2326,22 @@ inline void detect_and_add_cuda_arch(std::vector<std::string>& options) {
   }
   // Use the compute capability of the current device
   // TODO: Check these API calls for errors
+#if JITIFY_USE_CUEW
+  CUdevice device;
+  CUresult status = cuDeviceGet(&device, /* ordinal */0);
+  if (status != CUDA_SUCCESS) {
+    const char *err;
+    cuGetErrorString(status, &err);
+    throw std::runtime_error(
+        std::string(
+            "Failed to detect GPU architecture: cudaGetDevice failed: ") + std::string(err));
+  }
+  int cc_major;
+  cuDeviceGetAttribute(&cc_major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, device);
+  int cc_minor;
+  cuDeviceGetAttribute(&cc_minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, device);
+  int cc = cc_major * 10 + cc_minor;
+#else
   cudaError_t status;
   int device;
   status = cudaGetDevice(&device);
@@ -2324,6 +2356,7 @@ inline void detect_and_add_cuda_arch(std::vector<std::string>& options) {
   int cc_minor;
   cudaDeviceGetAttribute(&cc_minor, cudaDevAttrComputeCapabilityMinor, device);
   int cc = cc_major * 10 + cc_minor;
+#endif
   // Note: We must limit the architecture to the max supported by the current
   //         version of NVRTC, otherwise newer hardware will cause errors
   //         on older versions of CUDA.
@@ -2822,7 +2855,11 @@ class JitCache_impl {
     detail::add_options_from_env(_options);
 
     // Bootstrap the cuda context to avoid errors
+#if JITIFY_USE_CUEW
+    cuMemFree(0);
+#else
     cudaFree(0);
+#endif
   }
 };
 
@@ -3610,7 +3647,10 @@ CUresult parallel_for(ExecutionPolicy policy, IndexType begin, IndexType end,
   size_t n = end - begin;
   dim3 block(policy.block_size);
   dim3 grid((unsigned int)std::min((n - 1) / block.x + 1, size_t(65535)));
+#if JITIFY_USE_CUEW
+#else
   cudaSetDevice(policy.device);
+#endif
   return program.kernel("parallel_for_kernel")
       .instantiate<IndexType>()
       .configure(grid, block, 0, policy.stream)
